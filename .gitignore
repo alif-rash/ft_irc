@@ -1,0 +1,7 @@
+obj/
+ircserv
+
+# Temporary editor files
+*~
+.DS_Store
+.vscode/
