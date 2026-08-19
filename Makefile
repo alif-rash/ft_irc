@@ -49,7 +49,7 @@ header:
 $(NAME): $(OBJS)
 	@printf "$(YLW)🔧 Linking all objects...$(WHT)\n"
 	@$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
-	@printf "$(GRN)✅ Build complete. Run with ./$(NAME)$(WHT)\n"
+	@printf "$(GRN)✅ Build complete. Run with ./$(NAME) <port> <password>$(WHT)\n"
 
 $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(@D)
@@ -58,7 +58,6 @@ $(OBJDIR)/%.o: %.cpp
 clean:
 	@printf "$(RED)🧹 Cleaning object files...$(WHT)\n"
 	@$(RM) -r $(OBJDIR)
-	@find src -name '*.o' -delete
 	@printf "$(GRN)✅ Clean complete!$(WHT)\n"
 
 fclean: clean

@@ -9,8 +9,10 @@
 /*   Updated: 2026/08/17 16:34:35 by raalifa          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
-
+#include "Server.hpp"
 int main()
 {
+    Server server;
+    server.run();
     return 0;
 }

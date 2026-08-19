@@ -13,11 +13,22 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+#include "Client.hpp"
 class Server
 {
-public:
-    Server();
-    ~Server();
+    private:
+        int _serverFd;
+        int _port;
+        std::vector<struct pollfd> _pollFds;
+        std::map<int, Client> _clients;
+    public:
+        Server();
+        ~Server();
+        void run();
 };
 
 #endif
