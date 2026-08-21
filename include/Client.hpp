@@ -22,8 +22,10 @@ class Client
         Client(int fd);
         ~Client();
         int getFd() const;
+        
         void appendToBuffer(const char *data, size_t size);
-
+        void sendMessage(const std::string &message);
+        
         bool hasCompleteMessage() const;
         std::string getNextMessage();
 };

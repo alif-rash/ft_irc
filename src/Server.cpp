@@ -26,8 +26,6 @@ Server::Server()
     {
         perror("Socket creation failed");
     }
-    std::cout << "Server socket FD: " << _serverFd << std::endl;
-
     fcntl(_serverFd, F_SETFL, O_NONBLOCK);
     sockaddr_in serverAddress;
 
@@ -53,6 +51,54 @@ Server::Server()
     _pollFds.push_back(serverPoll);
 }
 
+void Server::acceptClient()
+{
+    int clientFd = accept(_serverFd, NULL, NULL);
+    if (clientFd == -1)
+    {
+        perror("Accept failed");
+        return;
+    }
+    fcntl(clientFd, F_SETFL, O_NONBLOCK);
+    struct pollfd clientPoll;
+    clientPoll.fd = clientFd;
+    clientPoll.events = POLLIN;
+    clientPoll.revents = 0;
+    _pollFds.push_back(clientPoll);
+    _clients.insert(std::make_pair(clientFd, Client(clientFd)));
+}
+
+void Server::receiveMessage(size_t index)
+{
+    std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
+    if (it == _clients.end())
+        return;
+    Client &client = it->second;
+    char buffer[512];
+    int bytesreceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0);
+    if (bytesreceived > 0)
+    {
+        buffer[bytesreceived] = '\0';
+        client.appendToBuffer(buffer, bytesreceived);
+        while (client.hasCompleteMessage())
+        {
+            std::string message = client.getNextMessage();
+            handleMessage(client, message);
+        }
+    }
+    else if (bytesreceived == 0)
+        handleDisconnect(index);
+    else if (errno != EAGAIN && errno != EWOULDBLOCK)
+        std::cerr << "recv error " << errno << std::endl;
+}
+
+void Server::handleDisconnect(size_t index)
+{
+    close(_pollFds[index].fd);
+    _clients.erase(_pollFds[index].fd);
+    _pollFds.erase(_pollFds.begin() + index);
+}
+
 void Server::run()
 {
     while (true)
@@ -65,63 +111,30 @@ void Server::run()
         }
         for (size_t i = 0; i < _pollFds.size(); i++)
         {
-            if (!(_pollFds[i].revents & POLLIN))
-                continue;
-            
-            if (i == 0)
+            if (_pollFds[i].revents & (POLLHUP | POLLERR | POLLNVAL))
             {
-                int clientFd = accept(_serverFd, NULL, NULL);
-                if (clientFd == -1)
+                if (i != 0)
                 {
-                    perror("Accept failed");
-                    continue;
-                }
-                fcntl(clientFd, F_SETFL, O_NONBLOCK);
-                std::cout << "Client connected! FD: " << clientFd << std::endl;
-                struct pollfd clientPoll;
-                clientPoll.fd = clientFd;
-                clientPoll.events = POLLIN;
-                clientPoll.revents = 0;
-                _pollFds.push_back(clientPoll);
-                _clients.insert(std::make_pair(clientFd, Client(clientFd)));
-            }
-            else
-            {
-                std::map<int, Client>::iterator it = _clients.find(_pollFds[i].fd);
-                if (it == _clients.end())
-                    continue;
-                Client &client = it->second;
-                char buffer[512];
-                int bytesreceived = recv(_pollFds[i].fd, buffer, sizeof(buffer) -1 , 0);
-                if (bytesreceived > 0)
-                {
-                    buffer[bytesreceived] = '\0';
-                    std::cout << "Received from FD " << _pollFds[i].fd << ": " << buffer << std::endl;
-                    client.appendToBuffer(buffer, bytesreceived);
-                    if (client.hasCompleteMessage())
-                       { std::string message = client.getNextMessage();
-                        
-                    else
-                        std::cout << "Incomplete message recieved!!";
-                }
-                else if (bytesreceived == 0)
-                {
-                    std::cout << "client disconnected! FD: " << _pollFds[i].fd << std::endl;
-                    close(_pollFds[i].fd);
-                    _clients.erase(_pollFds[i].fd);
-                    _pollFds.erase(_pollFds.begin() + i);
+                    handleDisconnect(i);
                     i--;
                 }
-                else
-                {
-                    if (errno != EAGAIN && errno != EWOULDBLOCK)
-                        std::cerr << "recv error " << errno << std::endl;
-                }
+            continue;
             }
+            if (!(_pollFds[i].revents & POLLIN))
+                continue;
+            if (i == 0)
+                acceptClient();
+            else
+                receiveMessage(i);
         }
     }
 }
 
+void Server::handleMessage(Client &client, const std::string &message)
+{
+    std::cout << "Handling message from FD " << client.getFd() << ": " << message << std::endl;
+    client.sendMessage("Message received\r\n");
+}
 
 Server::~Server()
 {

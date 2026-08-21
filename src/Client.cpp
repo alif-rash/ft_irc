@@ -11,6 +11,8 @@
 /* ************************************************************************** */
 
 #include "Client.hpp"
+#include <sys/socket.h>
+#include <iostream>
 
 Client::Client(int fd) : _fd(fd)
 {
@@ -28,6 +30,11 @@ int Client::getFd() const
 void Client::appendToBuffer(const char *data, size_t size)
 {
    _receiveBuffer.append(data, size);
+}
+
+void Client::sendMessage(const std::string &message)
+{
+    send(_fd, message.c_str(), message.size(), 0);
 }
 
 bool Client::hasCompleteMessage() const
