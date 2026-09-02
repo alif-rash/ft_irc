@@ -3,10 +3,11 @@
 /*                                                        :::      ::::::::   */
 /*   Invite.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: raalifa <raalifa@student.42abudhabi.ae>    +#+  +:+       +#+        */
+/*   By: hajmoham <hajmoham@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/17 16:34:00 by raalifa           #+#    #+#             */
-/*   Updated: 2026/08/17 16:34:00 by raalifa          ###   ########.fr       */
+/*   Updated: 2026/09/02 15:07:12 by hajmoham         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
+#include "Invite.hpp"
