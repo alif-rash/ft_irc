@@ -18,19 +18,29 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <cerrno>
+#include <csignal>
+volatile sig_atomic_t g_running = 1;
 
-Server::Server()
+Server::Server(int port, const std::string &password) : _port(port), _password(password)
 {
     _serverFd = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFd == -1)
     {
         perror("Socket creation failed");
     }
+    int opt = 1;
+    if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR,
+                   &opt, sizeof(opt)) == -1)
+    {
+        perror("setsockopt failed");
+        close(_serverFd);
+        return;
+    }
     fcntl(_serverFd, F_SETFL, O_NONBLOCK);
     sockaddr_in serverAddress;
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(6667);
+    serverAddress.sin_port = htons(_port);
     serverAddress.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(_serverFd, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == -1)
@@ -68,11 +78,11 @@ void Server::acceptClient()
     _clients.insert(std::make_pair(clientFd, Client(clientFd)));
 }
 
-void Server::receiveMessage(size_t index)
+bool Server::receiveMessage(size_t index)
 {
     std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
     if (it == _clients.end())
-        return;
+        return false;
     Client &client = it->second;
     char buffer[512];
     int bytesreceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0);
@@ -87,9 +97,13 @@ void Server::receiveMessage(size_t index)
         }
     }
     else if (bytesreceived == 0)
+    {
         handleDisconnect(index);
+        return true;
+    }
     else if (errno != EAGAIN && errno != EWOULDBLOCK)
         std::cerr << "recv error " << errno << std::endl;
+    return false;
 }
 
 void Server::handleDisconnect(size_t index)
@@ -101,11 +115,13 @@ void Server::handleDisconnect(size_t index)
 
 void Server::run()
 {
-    while (true)
+    while (g_running)
     {
         int result = poll(_pollFds.data(), _pollFds.size(), -1);
         if (result == -1)
         {
+            if (errno == EINTR)
+                continue;
             perror("Poll failed");
             break;
         }
@@ -125,7 +141,8 @@ void Server::run()
             if (i == 0)
                 acceptClient();
             else
-                receiveMessage(i);
+                if (receiveMessage(i))
+                    i--;
         }
     }
 }
@@ -138,5 +155,19 @@ void Server::handleMessage(Client &client, const std::string &message)
 
 Server::~Server()
 {
+    for (std::map<int, Client>::iterator it = _clients.begin();
+         it != _clients.end(); ++it)
+    {
+        close(it->first);
+    }
+
     close(_serverFd);
+}
+
+void handleSignal(int signal)
+{
+    if (signal == SIGINT)
+    {
+        g_running = 0;
+    }
 }

@@ -24,14 +24,15 @@ class Server
     private:
         int _serverFd;
         int _port;
+        std::string _password;
         std::vector<struct pollfd> _pollFds;
         std::map<int, Client> _clients;
         void handleMessage(Client &client, const std::string &message);
         void acceptClient();
-        void receiveMessage(size_t index);
+        bool receiveMessage(size_t index);
         void handleDisconnect(size_t index);
     public:
-        Server();
+        Server(int port, const std::string &password);
         ~Server();
         void run();
 };

@@ -18,6 +18,7 @@ class Client
     private:
         int _fd;
         std::string _receiveBuffer;    
+        std:string _sendBuffer;
     public:
         Client(int fd);
         ~Client();
