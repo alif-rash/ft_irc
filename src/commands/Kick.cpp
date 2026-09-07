@@ -10,3 +10,51 @@
 /*                                                                            */
 /* ************************************************************************** */
 
+#include "Channel.hpp"
+#include "Client.hpp"
+#include "Server.hpp"
+#include "Reply.hpp"
+
+void handleKick(Server &server, Client &client, const std::vector<std::string> &params)
+{
+    if (params.size() < 2)
+    {
+        client.sendMessage(Reply::ERR_NEEDMOREPARAMS(client.getNickname(), "KICK"));
+        return;
+    }
+
+    std::string channelName = params[0];
+    std::string targetNick = params[1];
+    std::string reason = (params.size() > 2) ? params[2] : client.getNickname();
+
+    Channel *channel = server.getChannel(channelName);
+    if (!channel)
+    {
+        client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
+        return;
+    }
+    if (!channel->isMember(&client))
+    {
+        client.sendMessage(Reply::ERR_NOTONCHANNEL(client.getNickname(), channelName));
+        return;
+    }
+    if (!channel->isOperator(&client))
+    {
+        client.sendMessage(Reply::ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
+        return;
+    }
+
+    Client *targetClient = server.getClientByNick(targetNick);
+    if (!targetClient || !channel->isMember(targetClient))
+    {
+        client.sendMessage(Reply::ERR_USERNOTINCHANNEL(client.getNickname(), targetNick, channelName));
+        return;
+    }
+
+    std::string kickMsg = ":" + client.getPrefix() + " KICK " + channelName + " " + targetNick + " :" + reason + "\r\n";
+    channel->broadcast(kickMsg);
+    channel->removeMember(targetClient);
+
+    if (channel->getMemberCount() == 0)
+        server.removeChannel(channelName);
+}
