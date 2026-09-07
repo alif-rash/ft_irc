@@ -3,12 +3,13 @@
 /*                                                        :::      ::::::::   */
 /*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: raalifa <raalifa@student.42abudhabi.ae>    +#+  +:+       +#+        */
+/*   By: hajmoham <hajmoham@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/08/17 16:34:35 by raalifa           #+#    #+#             */
-/*   Updated: 2026/08/17 16:34:35 by raalifa          ###   ########.fr       */
+/*   Created: 2026/09/07 21:03:29 by hajmoham          #+#    #+#             */
+/*   Updated: 2026/09/07 21:03:29 by hajmoham         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
 #include "Server.hpp"
 #include <cstdlib>
 #include <cerrno>
