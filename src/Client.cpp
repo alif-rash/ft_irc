@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: raalifa <raalifa@student.42abudhabi.ae>    +#+  +:+       +#+        */
+/*   By: hajmoham <hajmoham@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/08/17 16:34:31 by raalifa           #+#    #+#             */
-/*   Updated: 2026/08/17 16:34:31 by raalifa          ###   ########.fr       */
+/*   Created: 2026/09/07 18:06:12 by hajmoham          #+#    #+#             */
+/*   Updated: 2026/09/07 18:06:12 by hajmoham         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 #include <sys/socket.h>
 #include <iostream>
 
-Client::Client(int fd) : _fd(fd)
+Client::Client(int fd) : _fd(fd), _passOk(false), _registered(false)
 {
 }
 
@@ -53,3 +53,17 @@ std::string Client::getNextMessage()
     _receiveBuffer.erase(0, pos + 2);
     return message;
 }
+
+// --- getters ---
+const std::string &Client::getNickname() const { return _nickname; }
+const std::string &Client::getUsername() const { return _username; }
+const std::string &Client::getRealname() const { return _realname; }
+bool Client::getPassOk() const { return _passOk; }
+bool Client::isRegistered() const { return _registered; }
+
+// --- setters ---
+void Client::setNickname(const std::string &nick) { _nickname = nick; }
+void Client::setUsername(const std::string &user) { _username = user; }
+void Client::setRealname(const std::string &real) { _realname = real; }
+void Client::setPassOk(bool value) { _passOk = value; }
+void Client::setRegistered(bool value) { _registered = value; }
