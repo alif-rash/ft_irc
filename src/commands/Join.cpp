@@ -19,7 +19,7 @@ void handleJoin(Server &server, Client &client, const std::vector<std::string> &
 {
     if (params.empty())
     {
-        client.sendMessage(Reply::ERR_NEEDMOREPARAMS(client.getNickname(), "JOIN"));
+        client.sendMessage(ERR_NEEDMOREPARAMS(client.getNickname(), "JOIN"));
         return;
     }
 
@@ -28,7 +28,7 @@ void handleJoin(Server &server, Client &client, const std::vector<std::string> &
 
     if (channelName.empty() || channelName[0] != '#')
     {
-        client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
         return;
     }
 
@@ -45,17 +45,17 @@ void handleJoin(Server &server, Client &client, const std::vector<std::string> &
     {
         if (channel->hasKey() && channel->getKey() != key)
         {
-            client.sendMessage(Reply::ERR_BADCHANNELKEY(client.getNickname(), channelName));
+            client.sendMessage(ERR_BADCHANNELKEY(client.getNickname(), channelName));
             return;
         }
         if (channel->hasLimit() && channel->getMemberCount() >= channel->getLimit())
         {
-            client.sendMessage(Reply::ERR_CHANNELISFULL(client.getNickname(), channelName));
+            client.sendMessage(ERR_CHANNELISFULL(client.getNickname(), channelName));
             return;
         }
         if (channel->isInviteOnly() && !channel->isInvited(client.getNickname()))
         {
-            client.sendMessage(Reply::ERR_INVITEONLYCHAN(client.getNickname(), channelName));
+            client.sendMessage(ERR_INVITEONLYCHAN(client.getNickname(), channelName));
             return;
         }
     }
@@ -70,10 +70,10 @@ void handleJoin(Server &server, Client &client, const std::vector<std::string> &
     channel->broadcast(joinMsg);
 
     if (!channel->getTopic().empty())
-        client.sendMessage(Reply::RPL_TOPIC(client.getNickname(), channelName, channel->getTopic()));
+        client.sendMessage(RPL_TOPIC(client.getNickname(), channelName, channel->getTopic()));
     else
-        client.sendMessage(Reply::RPL_NOTOPIC(client.getNickname(), channelName));
+        client.sendMessage(RPL_NOTOPIC(client.getNickname(), channelName));
 
-    client.sendMessage(Reply::RPL_NAMREPLY(client.getNickname(), channelName, channel->getNamesString()));
-    client.sendMessage(Reply::RPL_ENDOFNAMES(client.getNickname(), channelName));
+    client.sendMessage(RPL_NAMREPLY(client.getNickname(), channelName, channel->getNamesString()));
+    client.sendMessage(RPL_ENDOFNAMES(client.getNickname(), channelName));
 }

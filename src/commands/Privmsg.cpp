@@ -19,7 +19,7 @@ void handlePrivmsg(Server &server, Client &client, const std::vector<std::string
 {
     if (params.size() < 2)
     {
-        client.sendMessage(Reply::ERR_NEEDMOREPARAMS(client.getNickname(), "PRIVMSG"));
+        client.sendMessage(ERR_NEEDMOREPARAMS(client.getNickname(), "PRIVMSG"));
         return;
     }
 
@@ -32,12 +32,12 @@ void handlePrivmsg(Server &server, Client &client, const std::vector<std::string
         Channel *channel = server.getChannel(target);
         if (!channel)
         {
-            client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), target));
+            client.sendMessage(ERR_NOSUCHCHANNEL(client.getNickname(), target));
             return;
         }
         if (!channel->isMember(&client))
         {
-            client.sendMessage(Reply::ERR_CANNOTSENDTOCHAN(client.getNickname(), target));
+            client.sendMessage(ERR_CANNOTSENDTOCHAN(client.getNickname(), target));
             return;
         }
         channel->broadcast(formattedMsg, &client);
@@ -47,7 +47,7 @@ void handlePrivmsg(Server &server, Client &client, const std::vector<std::string
         Client *targetClient = server.getClientByNick(target);
         if (!targetClient)
         {
-            client.sendMessage(Reply::ERR_NOSUCHNICK(client.getNickname(), target));
+            client.sendMessage(ERR_NOSUCHNICK(client.getNickname(), target));
             return;
         }
         targetClient->sendMessage(formattedMsg);

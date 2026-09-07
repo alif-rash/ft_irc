@@ -15,9 +15,7 @@
 
 #include <string>
 
-namespace Reply
-{
-    // Numeric Replies (RPL)
+// Numeric Replies (RPL)
     inline std::string RPL_WELCOME(const std::string &nickname, const std::string &prefix)
     {
         return "001 " + nickname + " :Welcome to the FT_IRC Network " + prefix + "\r\n";
@@ -108,6 +106,4 @@ namespace Reply
     {
         return "482 " + nickname + " " + channel + " :You're not channel operator\r\n";
     }
-}
-
 #endif

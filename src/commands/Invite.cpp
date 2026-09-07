@@ -20,7 +20,7 @@ void handleInvite(Server &server, Client &client, const std::vector<std::string>
 {
     if (params.size() < 2)
     {
-        client.sendMessage(Reply::ERR_NEEDMOREPARAMS(client.getNickname(), "INVITE"));
+        client.sendMessage(ERR_NEEDMOREPARAMS(client.getNickname(), "INVITE"));
         return;
     }
 
@@ -30,34 +30,34 @@ void handleInvite(Server &server, Client &client, const std::vector<std::string>
     Channel *channel = server.getChannel(channelName);
     if (!channel)
     {
-        client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
         return;
     }
     if (!channel->isMember(&client))
     {
-        client.sendMessage(Reply::ERR_NOTONCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOTONCHANNEL(client.getNickname(), channelName));
         return;
     }
     if (channel->isInviteOnly() && !channel->isOperator(&client))
     {
-        client.sendMessage(Reply::ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
+        client.sendMessage(ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
         return;
     }
 
     Client *targetClient = server.getClientByNick(targetNick);
     if (!targetClient)
     {
-        client.sendMessage(Reply::ERR_NOSUCHNICK(client.getNickname(), targetNick));
+        client.sendMessage(ERR_NOSUCHNICK(client.getNickname(), targetNick));
         return;
     }
     if (channel->isMember(targetClient))
     {
-        client.sendMessage(Reply::ERR_USERONCHANNEL(client.getNickname(), targetNick, channelName));
+        client.sendMessage(ERR_USERONCHANNEL(client.getNickname(), targetNick, channelName));
         return;
     }
 
     channel->addInvite(targetNick);
-    client.sendMessage(Reply::RPL_INVITING(client.getNickname(), targetNick, channelName));
+    client.sendMessage(RPL_INVITING(client.getNickname(), targetNick, channelName));
 
     std::string inviteNotice = ":" + client.getPrefix() + " INVITE " + targetNick + " :" + channelName + "\r\n";
     targetClient->sendMessage(inviteNotice);

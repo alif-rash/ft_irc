@@ -19,7 +19,7 @@ void handlePart(Server &server, Client &client, const std::vector<std::string> &
 {
     if (params.empty())
     {
-        client.sendMessage(Reply::ERR_NEEDMOREPARAMS(client.getNickname(), "PART"));
+        client.sendMessage(ERR_NEEDMOREPARAMS(client.getNickname(), "PART"));
         return;
     }
 
@@ -29,12 +29,12 @@ void handlePart(Server &server, Client &client, const std::vector<std::string> &
     Channel *channel = server.getChannel(channelName);
     if (!channel)
     {
-        client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
         return;
     }
     if (!channel->isMember(&client))
     {
-        client.sendMessage(Reply::ERR_NOTONCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOTONCHANNEL(client.getNickname(), channelName));
         return;
     }
 

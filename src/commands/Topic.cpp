@@ -19,7 +19,7 @@ void handleTopic(Server &server, Client &client, const std::vector<std::string> 
 {
     if (params.empty())
     {
-        client.sendMessage(Reply::ERR_NEEDMOREPARAMS(client.getNickname(), "TOPIC"));
+        client.sendMessage(ERR_NEEDMOREPARAMS(client.getNickname(), "TOPIC"));
         return;
     }
 
@@ -28,27 +28,27 @@ void handleTopic(Server &server, Client &client, const std::vector<std::string> 
 
     if (!channel)
     {
-        client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
         return;
     }
     if (!channel->isMember(&client))
     {
-        client.sendMessage(Reply::ERR_NOTONCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOTONCHANNEL(client.getNickname(), channelName));
         return;
     }
 
     if (params.size() == 1)
     {
         if (channel->getTopic().empty())
-            client.sendMessage(Reply::RPL_NOTOPIC(client.getNickname(), channelName));
+            client.sendMessage(RPL_NOTOPIC(client.getNickname(), channelName));
         else
-            client.sendMessage(Reply::RPL_TOPIC(client.getNickname(), channelName, channel->getTopic()));
+            client.sendMessage(RPL_TOPIC(client.getNickname(), channelName, channel->getTopic()));
         return;
     }
 
     if (channel->isTopicRestricted() && !channel->isOperator(&client))
     {
-        client.sendMessage(Reply::ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
+        client.sendMessage(ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
         return;
     }
 

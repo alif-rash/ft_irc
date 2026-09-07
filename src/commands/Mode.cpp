@@ -20,7 +20,7 @@ void handleMode(Server &server, Client &client, const std::vector<std::string> &
 {
     if (params.empty())
     {
-        client.sendMessage(Reply::ERR_NEEDMOREPARAMS(client.getNickname(), "MODE"));
+        client.sendMessage(ERR_NEEDMOREPARAMS(client.getNickname(), "MODE"));
         return;
     }
 
@@ -29,19 +29,19 @@ void handleMode(Server &server, Client &client, const std::vector<std::string> &
 
     if (!channel)
     {
-        client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
+        client.sendMessage(ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
         return;
     }
 
     if (params.size() == 1)
     {
-        client.sendMessage(Reply::RPL_CHANNELMODEIS(client.getNickname(), channelName, channel->getModesString()));
+        client.sendMessage(RPL_CHANNELMODEIS(client.getNickname(), channelName, channel->getModesString()));
         return;
     }
 
     if (!channel->isOperator(&client))
     {
-        client.sendMessage(Reply::ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
+        client.sendMessage(ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
         return;
     }
 
