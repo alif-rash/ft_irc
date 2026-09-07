@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #ifndef PARSER_HPP
+#define PARSER_HPP
 
 #include <string>
 #include <vector>
@@ -32,7 +33,7 @@ public:
     static bool stringToInt(const std::string &str, int &result);
 
     // Check an IRC nickname is valid: starts with a letter, <= 9 chars.
-    static bool isValidNickname(const std::string &nick);
+    static bool isValidNickname(const std::string &nickname);
 };
 
 #endif

@@ -136,14 +136,14 @@ void Channel::removeLimit()
     _hasLimit = false;
 }
 
-void Channel::setInviteOnly(bool active)
+void Channel::setInviteOnly(bool value)
 {
-    _inviteOnly = active;
+    _inviteOnly = value;
 }
 
-void Channel::setTopicRestricted(bool active)
+void Channel::setTopicRestricted(bool value)
 {
-    _topicRestricted = active;
+    _topicRestricted = value;
 }
 
 void Channel::addMember(Client *client)
@@ -243,7 +243,7 @@ void Channel::broadcast(const std::string &message, Client *sender)
     }
 }
 
-std::string Channel::getNamesList() const
+std::string Channel::getNamesString() const
 {
     std::string names = "";
     for (size_t i = 0; i < _members.size(); i++)

@@ -58,12 +58,12 @@ std::string Client::getNextMessage()
 const std::string &Client::getNickname() const { return _nickname; }
 const std::string &Client::getUsername() const { return _username; }
 const std::string &Client::getRealname() const { return _realname; }
-bool Client::getPassOk() const { return _passOk; }
+bool Client::isPassOk() const { return _passOk; }
 bool Client::isRegistered() const { return _registered; }
 
 // --- setters ---
-void Client::setNickname(const std::string &nick) { _nickname = nick; }
-void Client::setUsername(const std::string &user) { _username = user; }
-void Client::setRealname(const std::string &real) { _realname = real; }
+void Client::setNickname(const std::string &nickname) { _nickname = nickname; }
+void Client::setUsername(const std::string &username) { _username = username; }
+void Client::setRealname(const std::string &realname) { _realname = realname; }
 void Client::setPassOk(bool value) { _passOk = value; }
 void Client::setRegistered(bool value) { _registered = value; }

@@ -104,16 +104,16 @@ bool Parser::stringToInt(const std::string &str, int &result)
 // isValidNickname: not empty, <= 9 chars, first char a letter, rest are
 // letters/digits or - _ [ ] { } \ |. Cast to unsigned char avoids UB
 // when passing a negative char to isalpha/isalnum.
-bool Parser::isValidNickname(const std::string &nick)
+bool Parser::isValidNickname(const std::string &nickname)
 {
-    if (nick.empty() || nick.length() > 9)
+    if (nickname.empty() || nickname.length() > 9)
         return false;
-    if (!std::isalpha(static_cast<unsigned char>(nick[0])))
+    if (!std::isalpha(static_cast<unsigned char>(nickname[0])))
         return false;
 
-    for (size_t i = 1; i < nick.length(); ++i)
+    for (size_t i = 1; i < nickname.length(); ++i)
     {
-        char c = nick[i];
+        char c = nickname[i];
         if (!std::isalnum(static_cast<unsigned char>(c)) &&
             c != '-' && c != '_' && c != '[' && c != ']' &&
             c != '{' && c != '}' && c != '\\' && c != '|')

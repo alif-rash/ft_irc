@@ -38,13 +38,13 @@ class Client
         const std::string &getNickname() const;
         const std::string &getUsername() const;
         const std::string &getRealname() const;
-        bool getPassOk() const;
+        bool isPassOk() const;
         bool isRegistered() const;
 
         // --- setters ---
-        void setNickname(const std::string &nick);
-        void setUsername(const std::string &user);
-        void setRealname(const std::string &real);
+        void setNickname(const std::string &nickname);
+        void setUsername(const std::string &username);
+        void setRealname(const std::string &realname);
         void setPassOk(bool value);
         void setRegistered(bool value);
 };

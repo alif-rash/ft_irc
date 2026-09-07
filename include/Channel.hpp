@@ -60,8 +60,8 @@ class Channel
         void removeKey();
         void setLimit(size_t limit);
         void removeLimit();
-        void setInviteOnly(bool active);
-        void setTopicRestricted(bool active);
+        void setInviteOnly(bool value);
+        void setTopicRestricted(bool value);
 
         void addMember(Client *client);
         void removeMember(Client *client);
@@ -77,7 +77,7 @@ class Channel
         bool isInvited(const std::string &nickname) const;
 
         void broadcast(const std::string &message, Client *sender = NULL);
-        std::string getNamesList() const;
+        std::string getNamesString() const;
 };
 
 #endif

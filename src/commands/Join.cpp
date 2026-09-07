@@ -74,6 +74,6 @@ void handleJoin(Server &server, Client &client, const std::vector<std::string> &
     else
         client.sendMessage(Reply::RPL_NOTOPIC(client.getNickname(), channelName));
 
-    client.sendMessage(Reply::RPL_NAMREPLY(client.getNickname(), channelName, channel->getNamesList()));
+    client.sendMessage(Reply::RPL_NAMREPLY(client.getNickname(), channelName, channel->getNamesString()));
     client.sendMessage(Reply::RPL_ENDOFNAMES(client.getNickname(), channelName));
 }

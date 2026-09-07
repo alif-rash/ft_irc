@@ -85,18 +85,18 @@ bool Server::receiveMessage(size_t index)
         return false;
     Client &client = it->second;
     char buffer[512];
-    int bytesreceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytesreceived > 0)
+    int bytesReceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0);
+    if (bytesReceived > 0)
     {
-        buffer[bytesreceived] = '\0';
-        client.appendToBuffer(buffer, bytesreceived);
+        buffer[bytesReceived] = '\0';
+        client.appendToBuffer(buffer, bytesReceived);
         while (client.hasCompleteMessage())
         {
             std::string message = client.getNextMessage();
             handleMessage(client, message);
         }
     }
-    else if (bytesreceived == 0)
+    else if (bytesReceived == 0)
     {
         handleDisconnect(index);
         return true;
