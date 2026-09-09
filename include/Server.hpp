@@ -19,6 +19,8 @@
 #include <map>
 #include <poll.h>
 #include "Client.hpp"
+#include "Channel.hpp"
+
 class Server
 {
     private:
@@ -27,6 +29,7 @@ class Server
         std::string _password;
         std::vector<struct pollfd> _pollFds;
         std::map<int, Client> _clients;
+        std::map<int, Channel> _channels;
         void handleMessage(Client &client, const std::string &message);
         void acceptClient();
         bool receiveMessage(size_t index);
@@ -35,6 +38,15 @@ class Server
         Server(int port, const std::string &password);
         ~Server();
         void run();
+
+        const std::string &getPassword() const;
+
+        Channel *getChannel(const std::string &name);
+        Channel &createChannel(const std::string &name);
+        void removeChannel(const std::string &name);
+        Client *getClientByNick(const std::string &nickname);
+
+        void enableWrite(Client &client);
 };
 
 #endif

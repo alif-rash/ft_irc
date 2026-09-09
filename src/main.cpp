@@ -11,8 +11,8 @@
 /* ************************************************************************** */
 #include "Server.hpp"
 #include <cstdlib>
-#include <cerrno>
 #include <csignal>
+#include <exception>
 void handleSignal(int signal);
 int main(int ac, char **av)
 {
@@ -23,7 +23,7 @@ int main(int ac, char **av)
     }
     char *end;
     long value = strtol(av[1], &end, 10);
-    if (errno != 0 || *end != '\0' || value < 1 || value > 65535)
+    if (*end != '\0' || value < 1 || value > 65535)
     {
         std::cerr << "Invalid port number: " << av[1] << std::endl;
         return 1;
@@ -36,7 +36,15 @@ int main(int ac, char **av)
         return 1;
     }
     signal(SIGINT, handleSignal);
-    Server server(port, password);
-    server.run();
+    try
+    {
+        Server server(port, password);
+        server.run();
+    }
+    catch (const std::exception &error)
+    {
+        std::cerr << error.what() << std::endl;
+        return 1;
+    }
     return 0;
 }

@@ -17,16 +17,21 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <fcntl.h>
-#include <cerrno>
 #include <csignal>
+#include <cctype>
+#include <stdexcept>
+#include "Parser.hpp"
+#include "Commands.hpp"
+#include "Reply.hpp"
 volatile sig_atomic_t g_running = 1;
 
-Server::Server(int port, const std::string &password) : _port(port), _password(password)
+Server::Server(int port, const std::string &password) : _serverFd(-1), _port(port), _password(password)
 {
     _serverFd = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFd == -1)
     {
         perror("Socket creation failed");
+        throw std::runtime_error("Could not create server socket");
     }
     int opt = 1;
     if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR,
@@ -34,7 +39,7 @@ Server::Server(int port, const std::string &password) : _port(port), _password(p
     {
         perror("setsockopt failed");
         close(_serverFd);
-        return;
+        throw std::runtime_error("Could not configure server socket");
     }
     fcntl(_serverFd, F_SETFL, O_NONBLOCK);
     sockaddr_in serverAddress;
@@ -47,18 +52,24 @@ Server::Server(int port, const std::string &password) : _port(port), _password(p
     {
         perror("Bind failed");
         close(_serverFd);
-        return;
+        throw std::runtime_error("Could not bind server socket");
     }
     if (listen(_serverFd, 10) == -1)
     {
         perror("Listen failed");
         close(_serverFd);
-        return;
+        throw std::runtime_error("Could not listen on server socket");
     }
+    std::cout << "Server listening on port " << _port << std::endl;
     struct pollfd serverPoll;
     serverPoll.fd = _serverFd;
     serverPoll.events = POLLIN;
     _pollFds.push_back(serverPoll);
+}
+
+const std::string &Server::getPassword() const
+{
+    return _password;
 }
 
 void Server::acceptClient()
@@ -76,6 +87,7 @@ void Server::acceptClient()
     clientPoll.revents = 0;
     _pollFds.push_back(clientPoll);
     _clients.insert(std::make_pair(clientFd, Client(clientFd)));
+    std::cout << "Client connected: FD " << clientFd << std::endl;
 }
 
 bool Server::receiveMessage(size_t index)
@@ -101,16 +113,34 @@ bool Server::receiveMessage(size_t index)
         handleDisconnect(index);
         return true;
     }
-    else if (errno != EAGAIN && errno != EWOULDBLOCK)
-        std::cerr << "recv error " << errno << std::endl;
+    else
+        std::cerr << "recv error " << std::endl;
     return false;
 }
 
 void Server::handleDisconnect(size_t index)
 {
-    close(_pollFds[index].fd);
-    _clients.erase(_pollFds[index].fd);
+    int clientFd = _pollFds[index].fd;
+    std::map<int, Client>::iterator clientIt = _clients.find(clientFd);
+    if (clientIt != _clients.end())
+    {
+        Client *client = &clientIt->second;
+        for (std::map<int, Channel>::iterator it = _channels.begin(); it != _channels.end();)
+        {
+            it->second.removeMember(client);
+            if (it->second.getMemberCount() == 0)
+            {
+                std::map<int, Channel>::iterator channelIt = it++;
+                _channels.erase(channelIt);
+            }
+            else
+                ++it;
+        }
+        _clients.erase(clientIt);
+    }
+    close(clientFd);
     _pollFds.erase(_pollFds.begin() + index);
+    std::cout << "Client disconnected: FD " << clientFd << std::endl;
 }
 
 void Server::run()
@@ -120,8 +150,8 @@ void Server::run()
         int result = poll(_pollFds.data(), _pollFds.size(), -1);
         if (result == -1)
         {
-            if (errno == EINTR)
-                continue;
+            if (!g_running)
+                break;
             perror("Poll failed");
             break;
         }
@@ -136,21 +166,137 @@ void Server::run()
                 }
             continue;
             }
-            if (!(_pollFds[i].revents & POLLIN))
-                continue;
             if (i == 0)
-                acceptClient();
+            {
+                if (_pollFds[i].revents & POLLIN)
+                    acceptClient();
+                continue;
+            }
             else
-                if (receiveMessage(i))
-                    i--;
+            {
+                if (_pollFds[i].revents & POLLIN)
+                {
+                    if (receiveMessage(i))
+                    {
+                        i--;
+                        continue;
+                    }
+                }
+                if (_pollFds[i].revents & POLLOUT)
+                {
+                    std::map<int, Client>::iterator it = _clients.find(_pollFds[i].fd);
+                    if (it != _clients.end())
+                    {
+                        it->second.sendPendingData();
+                        if (!it->second.hasPendingData())
+                            _pollFds[i].events &= ~POLLOUT;
+                    }
+                }
+            }
+
         }
     }
 }
 
 void Server::handleMessage(Client &client, const std::string &message)
 {
-    std::cout << "Handling message from FD " << client.getFd() << ": " << message << std::endl;
-    client.sendMessage("Message received\r\n");
+    std::vector<std::string> tokens = Parser::parseMessage(message);
+    if (tokens.empty())
+        return;
+    std::string command = tokens[0];
+    
+    for (size_t i = 0; i < command.length(); ++i)
+        command[i] = std::toupper(static_cast<unsigned char>(command[i]));
+    tokens[0] = command;
+    std::vector<std::string> params(tokens.begin() + 1, tokens.end());
+    if (!client.isRegistered() && command != "PASS"
+            && command != "NICK" && command != "USER")
+    {
+        client.sendMessage(Reply::ERR_NOTREGISTERED(client.getNickname()));
+        enableWrite(client);
+        return;
+    }
+    if (command == "PASS")
+        handlePass(*this, client, params);
+    else if (command == "NICK")
+        handleNick(*this, client, params);
+    else if (command == "USER")
+        handleUser(*this, client, params);
+    else if (command == "INVITE")
+        handleInvite(*this, client, params);
+    else if (command == "JOIN")
+        handleJoin(*this, client, params);
+    else if (command == "KICK")
+        handleKick(*this, client, params);
+    else if (command == "MODE")
+        handleMode(*this, client, params);
+    else if (command == "PART")
+        handlePart(*this, client, params);
+    else if (command == "PRIVMSG")
+        handlePrivmsg(*this, client, params);
+    else if (command == "TOPIC")
+        handleTopic(*this, client, params);
+    else
+        client.sendMessage(Reply::ERR_UNKNOWNCOMMAND(client.getNickname(), command));
+    for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        if (it->second.hasPendingData())
+            enableWrite(it->second);
+    }
+}
+
+void Server::enableWrite(Client &client)
+{
+    for (size_t  i = 1; i < _pollFds.size();++i)
+    {
+        if (_pollFds[i].fd == client.getFd())
+        {
+            _pollFds[i].events |= POLLOUT;
+            return;
+        }
+    }
+}
+
+Channel *Server::getChannel(const std::string &name)
+{
+    for (std::map<int, Channel>::iterator it = _channels.begin();
+         it != _channels.end(); ++it)
+    {
+        if (it->second.getName() == name)
+            return &(it->second);
+    }
+    return NULL;
+}
+
+Channel &Server::createChannel(const std::string &name)
+{
+    int id = _channels.size();
+    _channels.insert(std::make_pair(id, Channel(name)));
+    return _channels.find(id)->second;
+}
+
+void Server::removeChannel(const std::string &name)
+{
+    for (std::map<int, Channel>::iterator it = _channels.begin();
+         it != _channels.end(); ++it)
+    {
+        if (it->second.getName() == name)
+        {
+            _channels.erase(it);
+            return;
+        }
+    }
+}
+
+Client *Server::getClientByNick(const std::string &nickname)
+{
+    for (std::map<int, Client>::iterator it = _clients.begin();
+         it != _clients.end(); ++it)
+    {
+        if (it->second.getNickname() == nickname)
+            return &(it->second);
+    }
+    return NULL;
 }
 
 Server::~Server()

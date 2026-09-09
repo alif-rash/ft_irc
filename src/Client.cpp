@@ -13,6 +13,7 @@
 #include "Client.hpp"
 #include <sys/socket.h>
 #include <iostream>
+#include <sys/types.h>
 
 Client::Client(int fd) : _fd(fd), _passOk(false), _registered(false)
 {
@@ -34,7 +35,25 @@ void Client::appendToBuffer(const char *data, size_t size)
 
 void Client::sendMessage(const std::string &message)
 {
-    send(_fd, message.c_str(), message.size(), 0);
+    _sendBuffer.append(message);
+}
+void Client::sendPendingData()
+{
+    if (_sendBuffer.empty())
+        return;
+    ssize_t bytesSent = send(_fd, _sendBuffer.c_str(), _sendBuffer.size(), 0);
+    if (bytesSent > 0)
+        _sendBuffer.erase(0, bytesSent);
+}
+
+bool Client::hasPendingData() const
+{
+    return !_sendBuffer.empty();
+}
+
+std::string Client::getPrefix() const
+{
+    return _nickname + "!" + _username + "@localhost";
 }
 
 bool Client::hasCompleteMessage() const
