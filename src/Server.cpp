@@ -29,15 +29,11 @@ Server::Server(int port, const std::string &password) : _serverFd(-1), _port(por
 {
     _serverFd = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFd == -1)
-    {
-        perror("Socket creation failed");
         throw std::runtime_error("Could not create server socket");
-    }
     int opt = 1;
     if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR,
                    &opt, sizeof(opt)) == -1)
     {
-        perror("setsockopt failed");
         close(_serverFd);
         throw std::runtime_error("Could not configure server socket");
     }
@@ -50,13 +46,11 @@ Server::Server(int port, const std::string &password) : _serverFd(-1), _port(por
 
     if (bind(_serverFd, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == -1)
     {
-        perror("Bind failed");
         close(_serverFd);
         throw std::runtime_error("Could not bind server socket");
     }
     if (listen(_serverFd, 10) == -1)
     {
-        perror("Listen failed");
         close(_serverFd);
         throw std::runtime_error("Could not listen on server socket");
     }
@@ -76,10 +70,7 @@ void Server::acceptClient()
 {
     int clientFd = accept(_serverFd, NULL, NULL);
     if (clientFd == -1)
-    {
-        perror("Accept failed");
         return;
-    }
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
     struct pollfd clientPoll;
     clientPoll.fd = clientFd;
@@ -105,7 +96,10 @@ bool Server::receiveMessage(size_t index)
         while (client.hasCompleteMessage())
         {
             std::string message = client.getNextMessage();
+            int clientFd = client.getFd();
             handleMessage(client, message);
+            if (_clients.find(clientFd) == _clients.end())
+                return true;
         }
     }
     else if (bytesReceived == 0)
@@ -114,7 +108,7 @@ bool Server::receiveMessage(size_t index)
         return true;
     }
     else
-        std::cerr << "recv error " << std::endl;
+        return false;
     return false;
 }
 
@@ -152,8 +146,7 @@ void Server::run()
         {
             if (!g_running)
                 break;
-            perror("Poll failed");
-            break;
+            throw std::runtime_error("Poll failed");
         }
         for (size_t i = 0; i < _pollFds.size(); i++)
         {
@@ -209,14 +202,43 @@ void Server::handleMessage(Client &client, const std::string &message)
         command[i] = std::toupper(static_cast<unsigned char>(command[i]));
     tokens[0] = command;
     std::vector<std::string> params(tokens.begin() + 1, tokens.end());
-    if (!client.isRegistered() && command != "PASS"
-            && command != "NICK" && command != "USER")
+        if (!client.isRegistered() && command != "PASS"
+            && command != "NICK" && command != "USER"
+            && command != "CAP" && command != "PING"
+            && command != "PONG" && command != "QUIT")
     {
         client.sendMessage(Reply::ERR_NOTREGISTERED(client.getNickname()));
         enableWrite(client);
         return;
     }
-    if (command == "PASS")
+    if (command == "CAP")
+    {
+        if (!params.empty() && params[0] == "LS")
+            client.sendMessage("CAP * LS :\r\n");
+        else if (!params.empty() && params[0] == "REQ" && params.size() > 1)
+            client.sendMessage("CAP * NAK :" + params[1] + "\r\n");
+    }
+    else if (command == "PING")
+    {
+        std::string token = params.empty() ? "" : " " + params[0];
+        client.sendMessage("PONG" + token + "\r\n");
+    }
+    else if (command == "PONG")
+    {
+    }
+    else if (command == "QUIT")
+    {
+        for (size_t i = 1; i < _pollFds.size(); ++i)
+        {
+            if (_pollFds[i].fd == client.getFd())
+            {
+                handleDisconnect(i);
+                break;
+            }
+        }
+        return;
+    }
+    else if (command == "PASS")
         handlePass(*this, client, params);
     else if (command == "NICK")
         handleNick(*this, client, params);

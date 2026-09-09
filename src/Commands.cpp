@@ -359,6 +359,7 @@ void handleMode(Server &server, Client &client, const std::vector<std::string> &
     std::string modeBroadcast = ":" + client.getPrefix() + " MODE " + channelName + " " + modeString;
     for (size_t i = 2; i < params.size(); ++i)
         modeBroadcast += " " + params[i];
+    modeBroadcast += "\r\n";
     channel->broadcast(modeBroadcast);
 }
 
