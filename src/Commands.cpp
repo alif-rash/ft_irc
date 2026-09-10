@@ -139,12 +139,25 @@ void handleInvite(Server &server, Client &client, const std::vector<std::string>
     std::string targetNick = params[0];
     std::string channelName = params[1];
 
+    Client *targetClient = server.getClientByNick(targetNick);
+    if (!targetClient)
+    {
+        client.sendMessage(Reply::ERR_NOSUCHNICK(client.getNickname(), targetNick));
+        return;
+    }
+
     Channel *channel = server.getChannel(channelName);
     if (!channel)
     {
         client.sendMessage(Reply::ERR_NOSUCHCHANNEL(client.getNickname(), channelName));
         return;
     }
+    if (channel->isMember(targetClient))
+    {
+        client.sendMessage(Reply::ERR_USERONCHANNEL(client.getNickname(), targetNick, channelName));
+        return;
+    }
+    
     if (!channel->isMember(&client))
     {
         client.sendMessage(Reply::ERR_NOTONCHANNEL(client.getNickname(), channelName));
@@ -153,18 +166,6 @@ void handleInvite(Server &server, Client &client, const std::vector<std::string>
     if (channel->isInviteOnly() && !channel->isOperator(&client))
     {
         client.sendMessage(Reply::ERR_CHANOPRIVSNEEDED(client.getNickname(), channelName));
-        return;
-    }
-
-    Client *targetClient = server.getClientByNick(targetNick);
-    if (!targetClient)
-    {
-        client.sendMessage(Reply::ERR_NOSUCHNICK(client.getNickname(), targetNick));
-        return;
-    }
-    if (channel->isMember(targetClient))
-    {
-        client.sendMessage(Reply::ERR_USERONCHANNEL(client.getNickname(), targetNick, channelName));
         return;
     }
 

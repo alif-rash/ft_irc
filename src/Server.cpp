@@ -25,6 +25,27 @@
 #include "Reply.hpp"
 volatile sig_atomic_t g_running = 1;
 
+static bool isSupportedCommand(const std::string &command)
+{
+    static const char *commands[] = {
+        "CAP", "PING", "PONG", "QUIT", "PASS", "NICK", "USER",
+        "INVITE", "JOIN", "KICK", "MODE", "PART", "PRIVMSG", "TOPIC"
+    };
+    for (size_t i = 0; i < 14; ++i)
+    {
+        if (command == commands[i])
+            return true;
+    }
+    return false;
+}
+
+static bool isRegistrationCommand(const std::string &command)
+{
+    return command == "PASS" || command == "NICK" || command == "USER"
+        || command == "CAP" || command == "PING" || command == "PONG"
+        || command == "QUIT";
+}
+
 Server::Server(int port, const std::string &password) : _serverFd(-1), _port(port), _password(password)
 {
     _serverFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -202,10 +223,13 @@ void Server::handleMessage(Client &client, const std::string &message)
         command[i] = std::toupper(static_cast<unsigned char>(command[i]));
     tokens[0] = command;
     std::vector<std::string> params(tokens.begin() + 1, tokens.end());
-        if (!client.isRegistered() && command != "PASS"
-            && command != "NICK" && command != "USER"
-            && command != "CAP" && command != "PING"
-            && command != "PONG" && command != "QUIT")
+    if (!isSupportedCommand(command))
+    {
+        client.sendMessage(Reply::ERR_UNKNOWNCOMMAND(client.getNickname(), command));
+        enableWrite(client);
+        return;
+    }
+    if (!client.isRegistered() && !isRegistrationCommand(command))
     {
         client.sendMessage(Reply::ERR_NOTREGISTERED(client.getNickname()));
         enableWrite(client);
@@ -336,6 +360,8 @@ void handleSignal(int signal)
 {
     if (signal == SIGINT)
     {
+        const char message[] = "\nShutting down ...\n";
+        write(STDOUT_FILENO, message, sizeof(message) - 1);
         g_running = 0;
     }
 }
