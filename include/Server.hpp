@@ -31,9 +31,12 @@ class Server
         std::map<int, Client> _clients;
         std::map<int, Channel> _channels;
         void handleMessage(Client &client, const std::string &message);
+        bool dispatchCommand(Client &client, const std::string &command,
+                     const std::vector<std::string> &params);
         void acceptClient();
         bool receiveMessage(size_t index);
         void handleDisconnect(size_t index);
+        bool processPollEvent(size_t &index);
     public:
         Server(int port, const std::string &password);
         ~Server();

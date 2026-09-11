@@ -15,12 +15,10 @@
 
 #include <string>
 
-/*WE DONOT NEED A .CPP CUZ WEE RAE USING STATIC FUNCS HERE*/
-
 class Reply
 {
     private:
-        Reply(); // Non-instantiable
+        Reply();
 
     public:
         // Numeric Replies (RPL)
@@ -29,14 +27,24 @@ class Reply
             return ":ft_irc 001 " + nickname + " :Welcome to FT_IRC Network " + prefix + "\r\n";
         }
 
+        static std::string RPL_CHANNELMODEIS(const std::string &nickname, const std::string &channel, const std::string &modes)
+        {
+            return ":ft_irc 324 " + nickname + " " + channel + " " + modes + "\r\n";
+        }
+        
+        static std::string RPL_NOTOPIC(const std::string &nickname, const std::string &channel)
+        {
+            return ":ft_irc 331 " + nickname + " " + channel + " :No topic is set\r\n";
+        }
+
         static std::string RPL_TOPIC(const std::string &nickname, const std::string &channel, const std::string &topic)
         {
             return ":ft_irc 332 " + nickname + " " + channel + " :" + topic + "\r\n";
         }
-
-        static std::string RPL_NOTOPIC(const std::string &nickname, const std::string &channel)
+        
+        static std::string RPL_INVITING(const std::string &nickname, const std::string &target, const std::string &channel)
         {
-            return ":ft_irc 331 " + nickname + " " + channel + " :No topic is set\r\n";
+            return ":ft_irc 341 " + nickname + " " + target + " " + channel + "\r\n";
         }
 
         static std::string RPL_NAMREPLY(const std::string &nickname, const std::string &channel, const std::string &names)
@@ -48,17 +56,7 @@ class Reply
         {
             return ":ft_irc 366 " + nickname + " " + channel + " :End of /NAMES list\r\n";
         }
-
-        static std::string RPL_INVITING(const std::string &nickname, const std::string &target, const std::string &channel)
-        {
-            return ":ft_irc 341 " + nickname + " " + target + " " + channel + "\r\n";
-        }
-
-        static std::string RPL_CHANNELMODEIS(const std::string &nickname, const std::string &channel, const std::string &modes)
-        {
-            return ":ft_irc 324 " + nickname + " " + channel + " " + modes + "\r\n";
-        }
-
+        
         // Error Replies (ERR)
         static std::string ERR_NOSUCHNICK(const std::string &nickname, const std::string &target)
         {
@@ -73,6 +71,11 @@ class Reply
         static std::string ERR_CANNOTSENDTOCHAN(const std::string &nickname, const std::string &channel)
         {
             return ":ft_irc 404 " + nickname + " " + channel + " :Cannot send to channel\r\n";
+        }
+
+        static std::string ERR_UNKNOWNCOMMAND(const std::string &nickname, const std::string &command)
+        {
+            return ":ft_irc 421 " + nickname + " " + command + " :Unknown command\r\n";
         }
 
         static std::string ERR_NONICKNAMEGIVEN(const std::string &nickname)
@@ -125,11 +128,6 @@ class Reply
             return ":ft_irc 464 " + (nickname.empty() ? "*" : nickname) + " :Password incorrect\r\n";
         }
 
-        static std::string ERR_BADCHANNELKEY(const std::string &nickname, const std::string &channel)
-        {
-            return ":ft_irc 475 " + nickname + " " + channel + " :Cannot join channel (+k)\r\n";
-        }
-
         static std::string ERR_CHANNELISFULL(const std::string &nickname, const std::string &channel)
         {
             return ":ft_irc 471 " + nickname + " " + channel + " :Cannot join channel (+l)\r\n";
@@ -140,15 +138,16 @@ class Reply
             return ":ft_irc 473 " + nickname + " " + channel + " :Cannot join channel (+i)\r\n";
         }
 
+        static std::string ERR_BADCHANNELKEY(const std::string &nickname, const std::string &channel)
+        {
+            return ":ft_irc 475 " + nickname + " " + channel + " :Cannot join channel (+k)\r\n";
+        }
+
         static std::string ERR_CHANOPRIVSNEEDED(const std::string &nickname, const std::string &channel)
         {
             return ":ft_irc 482 " + nickname + " " + channel + " :You're not channel operator\r\n";
         }
-        static std::string ERR_UNKNOWNCOMMAND(const std::string &nickname,
-                                      const std::string &command)
-        {
-        return ":ft_irc 421 " + nickname + " " + command + " :Unknown command\r\n";
-        }
+        
 };
 
 #endif

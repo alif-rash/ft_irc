@@ -158,6 +158,47 @@ void Server::handleDisconnect(size_t index)
     std::cout << "Client disconnected: FD " << clientFd << std::endl;
 }
 
+bool Server::processPollEvent(size_t &index)
+{
+    if (_pollFds[index].revents & (POLLHUP | POLLERR | POLLNVAL))
+    {
+        if (index != 0)
+        {
+            handleDisconnect(index);
+            --index;
+        }
+        return true;
+    }
+
+    if (index == 0)
+    {
+        if (_pollFds[index].revents & POLLIN)
+            acceptClient();
+        return true;
+    }
+
+    if (_pollFds[index].revents & POLLIN)
+    {
+        if (receiveMessage(index))
+        {
+            --index;
+            return true;
+        }
+    }
+
+    if (_pollFds[index].revents & POLLOUT)
+    {
+        std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
+        if (it != _clients.end())
+        {
+            it->second.sendPendingData();
+            if (!it->second.hasPendingData())
+                _pollFds[index].events &= ~POLLOUT;
+        }
+    }
+    return true;
+}
+
 void Server::run()
 {
     while (g_running)
@@ -170,45 +211,7 @@ void Server::run()
             throw std::runtime_error("Poll failed");
         }
         for (size_t i = 0; i < _pollFds.size(); i++)
-        {
-            if (_pollFds[i].revents & (POLLHUP | POLLERR | POLLNVAL))
-            {
-                if (i != 0)
-                {
-                    handleDisconnect(i);
-                    i--;
-                }
-            continue;
-            }
-            if (i == 0)
-            {
-                if (_pollFds[i].revents & POLLIN)
-                    acceptClient();
-                continue;
-            }
-            else
-            {
-                if (_pollFds[i].revents & POLLIN)
-                {
-                    if (receiveMessage(i))
-                    {
-                        i--;
-                        continue;
-                    }
-                }
-                if (_pollFds[i].revents & POLLOUT)
-                {
-                    std::map<int, Client>::iterator it = _clients.find(_pollFds[i].fd);
-                    if (it != _clients.end())
-                    {
-                        it->second.sendPendingData();
-                        if (!it->second.hasPendingData())
-                            _pollFds[i].events &= ~POLLOUT;
-                    }
-                }
-            }
-
-        }
+            processPollEvent(i);
     }
 }
 
@@ -235,6 +238,18 @@ void Server::handleMessage(Client &client, const std::string &message)
         enableWrite(client);
         return;
     }
+    if (!dispatchCommand(client, command, params))
+        return;
+    for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        if (it->second.hasPendingData())
+            enableWrite(it->second);
+    }
+}
+
+bool Server::dispatchCommand(Client &client, const std::string &command,
+                              const std::vector<std::string> &params)
+{
     if (command == "CAP")
     {
         if (!params.empty() && params[0] == "LS")
@@ -260,7 +275,7 @@ void Server::handleMessage(Client &client, const std::string &message)
                 break;
             }
         }
-        return;
+        return false;
     }
     else if (command == "PASS")
         handlePass(*this, client, params);
@@ -282,13 +297,7 @@ void Server::handleMessage(Client &client, const std::string &message)
         handlePrivmsg(*this, client, params);
     else if (command == "TOPIC")
         handleTopic(*this, client, params);
-    else
-        client.sendMessage(Reply::ERR_UNKNOWNCOMMAND(client.getNickname(), command));
-    for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
-    {
-        if (it->second.hasPendingData())
-            enableWrite(it->second);
-    }
+    return true;
 }
 
 void Server::enableWrite(Client &client)
