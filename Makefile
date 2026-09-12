@@ -8,18 +8,7 @@ SRCS        = src/main.cpp \
 		  src/Client.cpp \
 		  src/Channel.cpp \
 		  src/Parser.cpp \
-		  src/Utils.cpp \
-		  src/Reply.cpp \
-		  src/commands/Pass.cpp \
-		  src/commands/Nick.cpp \
-		  src/commands/User.cpp \
-		  src/commands/Join.cpp \
-		  src/commands/Part.cpp \
-		  src/commands/Privmsg.cpp \
-		  src/commands/Kick.cpp \
-		  src/commands/Invite.cpp \
-		  src/commands/Topic.cpp \
-		  src/commands/Mode.cpp
+		  src/Commands.cpp
 OBJS        = $(SRCS:%.cpp=$(OBJDIR)/%.o)
 
 # ---------- Compiler ----------

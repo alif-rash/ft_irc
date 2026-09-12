@@ -17,48 +17,81 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <fcntl.h>
-#include <cerrno>
+#include <csignal>
+#include <cctype>
+#include <stdexcept>
+#include "Parser.hpp"
+#include "Commands.hpp"
+#include "Reply.hpp"
+volatile sig_atomic_t g_running = 1;
 
-Server::Server()
+static bool isSupportedCommand(const std::string &command)
+{
+    static const char *commands[] = {
+        "CAP", "PING", "PONG", "QUIT", "PASS", "NICK", "USER",
+        "INVITE", "JOIN", "KICK", "MODE", "PART", "PRIVMSG", "TOPIC"
+    };
+    for (size_t i = 0; i < 14; ++i)
+    {
+        if (command == commands[i])
+            return true;
+    }
+    return false;
+}
+
+static bool isRegistrationCommand(const std::string &command)
+{
+    return command == "PASS" || command == "NICK" || command == "USER"
+        || command == "CAP" || command == "PING" || command == "PONG"
+        || command == "QUIT";
+}
+
+Server::Server(int port, const std::string &password) : _serverFd(-1), _port(port), _nextChannelId(0), _password(password)
 {
     _serverFd = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFd == -1)
+        throw std::runtime_error("Could not create server socket");
+    int opt = 1;
+    if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR,
+                   &opt, sizeof(opt)) == -1)
     {
-        perror("Socket creation failed");
+        close(_serverFd);
+        throw std::runtime_error("Could not configure server socket");
     }
     fcntl(_serverFd, F_SETFL, O_NONBLOCK);
     sockaddr_in serverAddress;
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(6667);
+    serverAddress.sin_port = htons(_port);
     serverAddress.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(_serverFd, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == -1)
     {
-        perror("Bind failed");
         close(_serverFd);
-        return;
+        throw std::runtime_error("Could not bind server socket");
     }
     if (listen(_serverFd, 10) == -1)
     {
-        perror("Listen failed");
         close(_serverFd);
-        return;
+        throw std::runtime_error("Could not listen on server socket");
     }
+    std::cout << "Server listening on port " << _port << std::endl;
     struct pollfd serverPoll;
     serverPoll.fd = _serverFd;
     serverPoll.events = POLLIN;
     _pollFds.push_back(serverPoll);
 }
 
+const std::string &Server::getPassword() const
+{
+    return _password;
+}
+
 void Server::acceptClient()
 {
     int clientFd = accept(_serverFd, NULL, NULL);
     if (clientFd == -1)
-    {
-        perror("Accept failed");
         return;
-    }
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
     struct pollfd clientPoll;
     clientPoll.fd = clientFd;
@@ -66,77 +99,296 @@ void Server::acceptClient()
     clientPoll.revents = 0;
     _pollFds.push_back(clientPoll);
     _clients.insert(std::make_pair(clientFd, Client(clientFd)));
+    std::cout << "Client connected: FD " << clientFd << std::endl;
 }
 
-void Server::receiveMessage(size_t index)
+bool Server::receiveMessage(size_t index)
 {
     std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
     if (it == _clients.end())
-        return;
+        return false;
     Client &client = it->second;
     char buffer[512];
-    int bytesreceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytesreceived > 0)
+    int bytesReceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0);
+    if (bytesReceived > 0)
     {
-        buffer[bytesreceived] = '\0';
-        client.appendToBuffer(buffer, bytesreceived);
+        buffer[bytesReceived] = '\0';
+        client.appendToBuffer(buffer, bytesReceived);
         while (client.hasCompleteMessage())
         {
             std::string message = client.getNextMessage();
+            int clientFd = client.getFd();
             handleMessage(client, message);
+            if (_clients.find(clientFd) == _clients.end())
+                return true;
         }
     }
-    else if (bytesreceived == 0)
+    else if (bytesReceived == 0)
+    {
         handleDisconnect(index);
-    else if (errno != EAGAIN && errno != EWOULDBLOCK)
-        std::cerr << "recv error " << errno << std::endl;
+        return true;
+    }
+    else
+        return false;
+    return false;
 }
 
 void Server::handleDisconnect(size_t index)
 {
-    close(_pollFds[index].fd);
-    _clients.erase(_pollFds[index].fd);
+    int clientFd = _pollFds[index].fd;
+    std::map<int, Client>::iterator clientIt = _clients.find(clientFd);
+    if (clientIt != _clients.end())
+    {
+        Client *client = &clientIt->second;
+        for (std::map<int, Channel>::iterator it = _channels.begin(); it != _channels.end();)
+        {
+            it->second.removeMember(client);
+            if (it->second.getMemberCount() == 0)
+            {
+                std::map<int, Channel>::iterator channelIt = it++;
+                _channels.erase(channelIt);
+            }
+            else
+                ++it;
+        }
+        _clients.erase(clientIt);
+    }
+    close(clientFd);
     _pollFds.erase(_pollFds.begin() + index);
+    std::cout << "Client disconnected: FD " << clientFd << std::endl;
+}
+
+bool Server::handlePollError(size_t &index)
+{
+    if (_pollFds[index].revents & (POLLHUP | POLLERR | POLLNVAL))
+    {
+        if (index != 0)
+        {
+            handleDisconnect(index);
+            --index;
+        }
+        return true;
+    }
+    return false;
+}
+
+bool Server::handleServerSocket(size_t index)
+{
+    if (index == 0)
+    {
+        if (_pollFds[index].revents & POLLIN)
+            acceptClient();
+        return true;
+    }
+    return false;
+}
+
+void Server::handleClientOutput(size_t index)
+{
+    std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
+    if (it != _clients.end())
+    {
+        it->second.sendPendingData();
+        if (!it->second.hasPendingData())
+            _pollFds[index].events &= ~POLLOUT;
+    }
+}
+
+bool Server::processPollEvent(size_t &index)
+{
+    if (handlePollError(index))
+        return true;
+
+    if (handleServerSocket(index))
+        return true;
+
+    if (_pollFds[index].revents & POLLIN)
+    {
+        if (receiveMessage(index))
+        {
+            --index;
+            return true;
+        }
+    }
+
+    if (_pollFds[index].revents & POLLOUT)
+        handleClientOutput(index);
+
+    return true;
 }
 
 void Server::run()
 {
-    while (true)
+    while (g_running)
     {
         int result = poll(_pollFds.data(), _pollFds.size(), -1);
         if (result == -1)
         {
-            perror("Poll failed");
-            break;
+            if (!g_running)
+                break;
+            throw std::runtime_error("Poll failed");
         }
         for (size_t i = 0; i < _pollFds.size(); i++)
-        {
-            if (_pollFds[i].revents & (POLLHUP | POLLERR | POLLNVAL))
-            {
-                if (i != 0)
-                {
-                    handleDisconnect(i);
-                    i--;
-                }
-            continue;
-            }
-            if (!(_pollFds[i].revents & POLLIN))
-                continue;
-            if (i == 0)
-                acceptClient();
-            else
-                receiveMessage(i);
-        }
+            processPollEvent(i);
     }
 }
 
 void Server::handleMessage(Client &client, const std::string &message)
 {
-    std::cout << "Handling message from FD " << client.getFd() << ": " << message << std::endl;
-    client.sendMessage("Message received\r\n");
+    std::vector<std::string> tokens = Parser::parseMessage(message);
+    if (tokens.empty())
+        return;
+    std::string command = tokens[0];
+    
+    for (size_t i = 0; i < command.length(); ++i)
+        command[i] = std::toupper(static_cast<unsigned char>(command[i]));
+    tokens[0] = command;
+    std::vector<std::string> params(tokens.begin() + 1, tokens.end());
+    if (!isSupportedCommand(command))
+    {
+        client.sendMessage(Reply::ERR_UNKNOWNCOMMAND(client.getNickname(), command));
+        enableWrite(client);
+        return;
+    }
+    if (!client.isRegistered() && !isRegistrationCommand(command))
+    {
+        client.sendMessage(Reply::ERR_NOTREGISTERED(client.getNickname()));
+        enableWrite(client);
+        return;
+    }
+    if (!dispatchCommand(client, command, params))
+        return;
+    for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        if (it->second.hasPendingData())
+            enableWrite(it->second);
+    }
+}
+
+bool Server::dispatchCommand(Client &client, const std::string &command,
+                              const std::vector<std::string> &params)
+{
+    if (command == "CAP")
+    {
+        if (!params.empty() && params[0] == "LS")
+            client.sendMessage("CAP * LS :\r\n");
+        else if (!params.empty() && params[0] == "REQ" && params.size() > 1)
+            client.sendMessage("CAP * NAK :" + params[1] + "\r\n");
+    }
+    else if (command == "PING")
+    {
+        std::string token = params.empty() ? "" : " " + params[0];
+        client.sendMessage("PONG" + token + "\r\n");
+    }
+    else if (command == "PONG")
+    {
+    }
+    else if (command == "QUIT")
+    {
+        for (size_t i = 1; i < _pollFds.size(); ++i)
+        {
+            if (_pollFds[i].fd == client.getFd())
+            {
+                handleDisconnect(i);
+                break;
+            }
+        }
+        return false;
+    }
+    else if (command == "PASS")
+        handlePass(*this, client, params);
+    else if (command == "NICK")
+        handleNick(*this, client, params);
+    else if (command == "USER")
+        handleUser(*this, client, params);
+    else if (command == "INVITE")
+        handleInvite(*this, client, params);
+    else if (command == "JOIN")
+        handleJoin(*this, client, params);
+    else if (command == "KICK")
+        handleKick(*this, client, params);
+    else if (command == "MODE")
+        handleMode(*this, client, params);
+    else if (command == "PART")
+        handlePart(*this, client, params);
+    else if (command == "PRIVMSG")
+        handlePrivmsg(*this, client, params);
+    else if (command == "TOPIC")
+        handleTopic(*this, client, params);
+    return true;
+}
+
+void Server::enableWrite(Client &client)
+{
+    for (size_t  i = 1; i < _pollFds.size();++i)
+    {
+        if (_pollFds[i].fd == client.getFd())
+        {
+            _pollFds[i].events |= POLLOUT;
+            return;
+        }
+    }
+}
+
+Channel *Server::getChannel(const std::string &name)
+{
+    for (std::map<int, Channel>::iterator it = _channels.begin();
+         it != _channels.end(); ++it)
+    {
+        if (it->second.getName() == name)
+            return &(it->second);
+    }
+    return NULL;
+}
+
+Channel &Server::createChannel(const std::string &name)
+{
+    int id = _nextChannelId++;
+    _channels.insert(std::make_pair(id, Channel(name)));
+    return _channels.find(id)->second;
+}
+
+void Server::removeChannel(const std::string &name)
+{
+    for (std::map<int, Channel>::iterator it = _channels.begin();
+         it != _channels.end(); ++it)
+    {
+        if (it->second.getName() == name)
+        {
+            _channels.erase(it);
+            return;
+        }
+    }
+}
+
+Client *Server::getClientByNick(const std::string &nickname)
+{
+    for (std::map<int, Client>::iterator it = _clients.begin();
+         it != _clients.end(); ++it)
+    {
+        if (it->second.getNickname() == nickname)
+            return &(it->second);
+    }
+    return NULL;
 }
 
 Server::~Server()
 {
+    for (std::map<int, Client>::iterator it = _clients.begin();
+         it != _clients.end(); ++it)
+    {
+        close(it->first);
+    }
+
     close(_serverFd);
+}
+
+void handleSignal(int signal)
+{
+    if (signal == SIGINT)
+    {
+        const char message[] = "\nShutting down ...\n";
+        write(STDOUT_FILENO, message, sizeof(message) - 1);
+        g_running = 0;
+    }
 }

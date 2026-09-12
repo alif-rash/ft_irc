@@ -3,18 +3,19 @@
 /*                                                        :::      ::::::::   */
 /*   Client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: raalifa <raalifa@student.42abudhabi.ae>    +#+  +:+       +#+        */
+/*   By: hajmoham <hajmoham@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/08/17 16:34:31 by raalifa           #+#    #+#             */
-/*   Updated: 2026/08/17 16:34:31 by raalifa          ###   ########.fr       */
+/*   Created: 2026/09/07 18:06:12 by hajmoham          #+#    #+#             */
+/*   Updated: 2026/09/07 18:06:12 by hajmoham         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Client.hpp"
 #include <sys/socket.h>
 #include <iostream>
+#include <sys/types.h>
 
-Client::Client(int fd) : _fd(fd)
+Client::Client(int fd) : _fd(fd), _passOk(false), _registered(false)
 {
 }
 
@@ -34,7 +35,25 @@ void Client::appendToBuffer(const char *data, size_t size)
 
 void Client::sendMessage(const std::string &message)
 {
-    send(_fd, message.c_str(), message.size(), 0);
+    _sendBuffer.append(message);
+}
+void Client::sendPendingData()
+{
+    if (_sendBuffer.empty())
+        return;
+    ssize_t bytesSent = send(_fd, _sendBuffer.c_str(), _sendBuffer.size(), 0);
+    if (bytesSent > 0)
+        _sendBuffer.erase(0, bytesSent);
+}
+
+bool Client::hasPendingData() const
+{
+    return !_sendBuffer.empty();
+}
+
+std::string Client::getPrefix() const
+{
+    return _nickname + "!" + _username + "@localhost";
 }
 
 bool Client::hasCompleteMessage() const
@@ -53,3 +72,17 @@ std::string Client::getNextMessage()
     _receiveBuffer.erase(0, pos + 2);
     return message;
 }
+
+// --- getters ---
+const std::string &Client::getNickname() const { return _nickname; }
+const std::string &Client::getUsername() const { return _username; }
+const std::string &Client::getRealname() const { return _realname; }
+bool Client::isPassOk() const { return _passOk; }
+bool Client::isRegistered() const { return _registered; }
+
+// --- setters ---
+void Client::setNickname(const std::string &nickname) { _nickname = nickname; }
+void Client::setUsername(const std::string &username) { _username = username; }
+void Client::setRealname(const std::string &realname) { _realname = realname; }
+void Client::setPassOk(bool value) { _passOk = value; }
+void Client::setRegistered(bool value) { _registered = value; }
