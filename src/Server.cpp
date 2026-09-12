@@ -158,7 +158,7 @@ void Server::handleDisconnect(size_t index)
     std::cout << "Client disconnected: FD " << clientFd << std::endl;
 }
 
-bool Server::processPollEvent(size_t &index)
+bool Server::handlePollError(size_t &index)
 {
     if (_pollFds[index].revents & (POLLHUP | POLLERR | POLLNVAL))
     {
@@ -169,13 +169,38 @@ bool Server::processPollEvent(size_t &index)
         }
         return true;
     }
+    return false;
+}
 
+bool Server::handleServerSocket(size_t index)
+{
     if (index == 0)
     {
         if (_pollFds[index].revents & POLLIN)
             acceptClient();
         return true;
     }
+    return false;
+}
+
+void Server::handleClientOutput(size_t index)
+{
+    std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
+    if (it != _clients.end())
+    {
+        it->second.sendPendingData();
+        if (!it->second.hasPendingData())
+            _pollFds[index].events &= ~POLLOUT;
+    }
+}
+
+bool Server::processPollEvent(size_t &index)
+{
+    if (handlePollError(index))
+        return true;
+
+    if (handleServerSocket(index))
+        return true;
 
     if (_pollFds[index].revents & POLLIN)
     {
@@ -187,15 +212,8 @@ bool Server::processPollEvent(size_t &index)
     }
 
     if (_pollFds[index].revents & POLLOUT)
-    {
-        std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
-        if (it != _clients.end())
-        {
-            it->second.sendPendingData();
-            if (!it->second.hasPendingData())
-                _pollFds[index].events &= ~POLLOUT;
-        }
-    }
+        handleClientOutput(index);
+
     return true;
 }
 

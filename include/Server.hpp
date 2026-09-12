@@ -37,6 +37,9 @@ class Server
         bool receiveMessage(size_t index);
         void handleDisconnect(size_t index);
         bool processPollEvent(size_t &index);
+        bool handlePollError(size_t &index);
+        bool handleServerSocket(size_t index);
+        void handleClientOutput(size_t index);
     public:
         Server(int port, const std::string &password);
         ~Server();

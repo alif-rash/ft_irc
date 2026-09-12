@@ -1,6 +1,6 @@
 # ft_irc Study Guide
 
-This guide describes the current workspace as inspected on 2026-09-11. The source files are the authority. The guide does not assume features that are not implemented.
+This guide describes the current workspace as inspected on 2026-09-12. The source files are the authority. The guide does not assume features that are not implemented.
 
 ## Pass 1: Project Structure
 
@@ -84,7 +84,19 @@ Repeats while `g_running` is nonzero. It blocks in `poll()` with an infinite tim
 
 ### `Server::processPollEvent(size_t &index)`
 
-Handles one poll slot. Error/hangup events disconnect client slots. Slot zero calls `acceptClient()` for `POLLIN`. Other slots call `receiveMessage()` for `POLLIN` and flush queued data for `POLLOUT`. It receives `index` by reference because removing a poll entry requires decrementing the loop index so the next vector entry is not skipped.
+Coordinates handling for one poll slot. It first delegates error/hangup flags to `handlePollError()`, then delegates the listening socket to `handleServerSocket()`. For client slots it calls `receiveMessage()` for `POLLIN` and `handleClientOutput()` for `POLLOUT`. It receives `index` by reference because removing a poll entry requires decrementing the loop index so the next vector entry is not skipped.
+
+### `Server::handlePollError(size_t &index)`
+
+Checks `POLLHUP`, `POLLERR`, and `POLLNVAL`. For a client slot it calls `handleDisconnect()` and decrements the index after the vector entry is erased. For slot zero it stops processing that event without attempting to accept. It returns `true` when an error/hangup condition was handled and `false` otherwise.
+
+### `Server::handleServerSocket(size_t index)`
+
+Checks whether the current poll slot is slot zero, which represents the listening socket. If that slot has `POLLIN`, it calls `acceptClient()`. It returns `true` for the listening slot so the caller does not treat it like a client socket, and `false` for client slots.
+
+### `Server::handleClientOutput(size_t index)`
+
+Looks up the client belonging to the poll slot, calls `sendPendingData()`, and removes `POLLOUT` from the requested event mask once the client's send buffer is empty. This keeps output flushing separate from input and disconnect handling.
 
 ### `Server::acceptClient()`
 
@@ -290,7 +302,7 @@ sequenceDiagram
     C->>K: send()
 ```
 
-Startup is `main -> Server constructor -> run -> poll`. The server socket occupies `_pollFds[0]`; client sockets occupy later slots. A client is inserted into `_clients` immediately after accept, before it registers. Registration is application state, not socket state.
+Startup is `main -> Server constructor -> run -> poll`. For each ready slot, `processPollEvent()` routes errors to `handlePollError()`, slot zero to `handleServerSocket()`, client input to `receiveMessage()`, and client output to `handleClientOutput()`. The server socket occupies `_pollFds[0]`; client sockets occupy later slots. A client is inserted into `_clients` immediately after accept, before it registers. Registration is application state, not socket state.
 
 If TCP sends `com`, then `man`, then `d\r\n`, the receive buffer becomes:
 
@@ -630,8 +642,8 @@ Server
   owns pollfds, Client objects, Channel objects
 poll slot 0
   listening socket; POLLIN means accept
-client slots
-  POLLIN means recv; POLLOUT means flush send buffer
+  client slots
+  POLLIN -> receiveMessage; POLLOUT -> handleClientOutput -> sendPendingData
 Client receive buffer
   stores bytes until CRLF; extracts one or many IRC lines
 Parser
