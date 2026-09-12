@@ -26,6 +26,7 @@ class Server
     private:
         int _serverFd;
         int _port;
+        int _nextChannelId;
         std::string _password;
         std::vector<struct pollfd> _pollFds;
         std::map<int, Client> _clients;

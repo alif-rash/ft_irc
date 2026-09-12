@@ -46,7 +46,7 @@ static bool isRegistrationCommand(const std::string &command)
         || command == "QUIT";
 }
 
-Server::Server(int port, const std::string &password) : _serverFd(-1), _port(port), _password(password)
+Server::Server(int port, const std::string &password) : _serverFd(-1), _port(port), _nextChannelId(0), _password(password)
 {
     _serverFd = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFd == -1)
@@ -343,7 +343,7 @@ Channel *Server::getChannel(const std::string &name)
 
 Channel &Server::createChannel(const std::string &name)
 {
-    int id = _channels.size();
+    int id = _nextChannelId++;
     _channels.insert(std::make_pair(id, Channel(name)));
     return _channels.find(id)->second;
 }

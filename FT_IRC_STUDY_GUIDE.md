@@ -128,7 +128,7 @@ Finds the client's poll slot and adds `POLLOUT` to its event mask. It is called 
 
 ### `Server::getChannel`, `createChannel`, `removeChannel`
 
-`getChannel` linearly searches `_channels` by channel name. `createChannel` assigns an integer map key based on current map size and returns the new channel. `removeChannel` erases the first channel with a matching name.
+`getChannel` linearly searches `_channels` by channel name. `createChannel` assigns a monotonically increasing integer ID from `_nextChannelId`, inserts the new channel, and returns it. The counter must not be replaced with `_channels.size()`: after a channel is erased, the size can reuse an existing key, and `std::map::insert()` would keep the old channel instead of creating the requested one. `removeChannel` erases the first channel with a matching name.
 
 ### `Server::getClientByNick`
 
@@ -669,3 +669,4 @@ shutdown
 5. `sendPendingData()` keeps partial writes but does not explicitly report or recover from all send errors.
 6. The current code uses fixed `:ft_irc` in replies; there is no configurable server-name field.
 7. `RPL_WELCOME` includes the client's generated prefix after the welcome text, matching the current implementation but worth explaining if an evaluator asks about the exact output.
+8. Channel map IDs are deliberately monotonic. Using `_channels.size()` would allow ID collisions after channel deletion and could cause `std::map::insert()` to return the existing channel under the wrong requested name.
