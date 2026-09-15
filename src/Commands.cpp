@@ -1,12 +1,12 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   commands.cpp                                       :+:      :+:    :+:   */
+/*   Commands.cpp                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: raalifa <raalifa@student.42abudhabi.ae>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/09 13:18:25 by raalifa           #+#    #+#             */
-/*   Updated: 2026/09/09 13:18:25 by raalifa          ###   ########.fr       */
+/*   Updated: 2026/09/15 20:35:09 by raalifa          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -390,7 +390,7 @@ void handlePart(Server &server, Client &client, const std::vector<std::string> &
     std::string partMsg = ":" + client.getPrefix() + " PART " + channelName + " :" + reason + "\r\n";
     channel->broadcast(partMsg);
     channel->removeMember(&client);
-
+    
     if (channel->getMemberCount() == 0)
         server.removeChannel(channelName);
 }

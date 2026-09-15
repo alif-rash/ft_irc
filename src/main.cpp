@@ -9,18 +9,20 @@
 /*   Updated: 2026/08/17 16:34:35 by raalifa          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
 #include "Server.hpp"
 #include <cstdlib>
 #include <csignal>
 #include <exception>
 #include <stdexcept>
+
 void handleSignal(int signal);
 int main(int ac, char **av)
 {
     try
     {
         if (ac != 3)
-            throw std::runtime_error("Usage: " + std::string(av[0]) + " <port> <password>");
+            throw std::runtime_error("Usage: ./ircserv <port> <password>");
 
         char *end;
         long value = strtol(av[1], &end, 10);

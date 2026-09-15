@@ -69,7 +69,7 @@ std::string Client::getNextMessage()
         return "";
     }
     std::string message = _receiveBuffer.substr(0, pos);
-    _receiveBuffer.erase(0, pos + 2);
+    _receiveBuffer.erase(0, pos + 2); //removes \r\n
     return message;
 }
 

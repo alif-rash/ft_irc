@@ -59,7 +59,7 @@ Server::Server(int port, const std::string &password) : _serverFd(-1), _port(por
         throw std::runtime_error("Could not configure server socket");
     }
     fcntl(_serverFd, F_SETFL, O_NONBLOCK);
-    sockaddr_in serverAddress;
+    sockaddr_in serverAddress = {};
 
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(_port);
@@ -76,7 +76,7 @@ Server::Server(int port, const std::string &password) : _serverFd(-1), _port(por
         throw std::runtime_error("Could not listen on server socket");
     }
     std::cout << "Server listening on port " << _port << std::endl;
-    struct pollfd serverPoll;
+    struct pollfd serverPoll = {};
     serverPoll.fd = _serverFd;
     serverPoll.events = POLLIN;
     _pollFds.push_back(serverPoll);
@@ -93,7 +93,7 @@ void Server::acceptClient()
     if (clientFd == -1)
         return;
     fcntl(clientFd, F_SETFL, O_NONBLOCK);
-    struct pollfd clientPoll;
+    struct pollfd clientPoll = {};
     clientPoll.fd = clientFd;
     clientPoll.events = POLLIN;
     clientPoll.revents = 0;
@@ -107,10 +107,10 @@ bool Server::receiveMessage(size_t index)
     std::map<int, Client>::iterator it = _clients.find(_pollFds[index].fd);
     if (it == _clients.end())
         return false;
-    Client &client = it->second;
+    Client &client = it->second; //get client object
     char buffer[512];
-    int bytesReceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytesReceived > 0)
+    int bytesReceived = recv(_pollFds[index].fd, buffer, sizeof(buffer) - 1, 0); //reads up to 511 bytes from socket
+    if (bytesReceived > 0) //bytes recieved
     {
         buffer[bytesReceived] = '\0';
         client.appendToBuffer(buffer, bytesReceived);
@@ -123,13 +123,11 @@ bool Server::receiveMessage(size_t index)
                 return true;
         }
     }
-    else if (bytesReceived == 0)
+    else if (bytesReceived == 0) //client disconnected
     {
         handleDisconnect(index);
         return true;
     }
-    else
-        return false;
     return false;
 }
 
@@ -140,18 +138,18 @@ void Server::handleDisconnect(size_t index)
     if (clientIt != _clients.end())
     {
         Client *client = &clientIt->second;
-        for (std::map<int, Channel>::iterator it = _channels.begin(); it != _channels.end();)
+        for (std::map<int, Channel>::iterator it = _channels.begin(); it != _channels.end();) //loops through all channels
         {
-            it->second.removeMember(client);
-            if (it->second.getMemberCount() == 0)
+            it->second.removeMember(client); //removes disconnected client from channel
+            if (it->second.getMemberCount() == 0) //if channel empty
             {
-                std::map<int, Channel>::iterator channelIt = it++;
-                _channels.erase(channelIt);
+                std::map<int, Channel>::iterator channelIt = it++; //store current iterator and increment it
+                _channels.erase(channelIt); //erase old channel
             }
             else
                 ++it;
         }
-        _clients.erase(clientIt);
+        _clients.erase(clientIt); //remove client object from map
     }
     close(clientFd);
     _pollFds.erase(_pollFds.begin() + index);
@@ -202,16 +200,16 @@ bool Server::processPollEvent(size_t &index)
     if (handleServerSocket(index))
         return true;
 
-    if (_pollFds[index].revents & POLLIN)
+    if (_pollFds[index].revents & POLLIN) //incoming client data
     {
-        if (receiveMessage(index))
+        if (receiveMessage(index)) //returns true when client disconnect/quits
         {
             --index;
             return true;
         }
     }
 
-    if (_pollFds[index].revents & POLLOUT)
+    if (_pollFds[index].revents & POLLOUT) //outgoing data
         handleClientOutput(index);
 
     return true;
@@ -320,11 +318,11 @@ bool Server::dispatchCommand(Client &client, const std::string &command,
 
 void Server::enableWrite(Client &client)
 {
-    for (size_t  i = 1; i < _pollFds.size();++i)
+    for (size_t  i = 1; i < _pollFds.size();++i) 
     {
-        if (_pollFds[i].fd == client.getFd())
+        if (_pollFds[i].fd == client.getFd()) //matches client socket
         {
-            _pollFds[i].events |= POLLOUT;
+            _pollFds[i].events |= POLLOUT; //watch for incoming and outgoing data
             return;
         }
     }
