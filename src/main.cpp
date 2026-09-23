@@ -35,6 +35,7 @@ int main(int ac, char **av)
             throw std::runtime_error("Password cannot be empty.");
 
         signal(SIGINT, handleSignal);
+        signal(SIGPIPE, SIG_IGN);
         Server server(port, password);
         server.run();
     }
